@@ -1,0 +1,10 @@
+# DSEX DOM — Python dependencies
+# Backend broker
+fastapi>=0.110,<1.0
+uvicorn[standard]>=0.29        # bundles the websockets server + httptools
+
+# Terminal UI (curses) WebSocket client
+websockets>=12.0
+
+# Windows does not ship the stdlib `curses` module; this provides it.
+windows-curses>=2.3.0 ; platform_system == "Windows"

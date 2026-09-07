@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DSEX DOM &middot; Live Order Book</title>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <!-- ── Header ─────────────────────────────────────────────── -->
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo">DSEX</span>
+        <span class="brand-sub">Depth&nbsp;of&nbsp;Market</span>
+      </div>
+
+      <div class="instrument">
+        <select id="symbol-select" aria-label="Instrument"></select>
+        <div class="instrument-meta">
+          <span id="inst-name">—</span>
+          <span id="inst-sector" class="pill">—</span>
+        </div>
+      </div>
+
+      <div class="conn">
+        <span id="status-dot" class="dot"></span>
+        <span id="status-text">connecting…</span>
+      </div>
+    </header>
+
+    <!-- ── Stat strip ─────────────────────────────────────────── -->
+    <section class="stats" id="stats">
+      <div class="stat ltp">
+        <label>LTP</label>
+        <div class="stat-val" id="s-ltp">—</div>
+      </div>
+      <div class="stat">
+        <label>Change</label>
+        <div class="stat-val" id="s-change">—</div>
+      </div>
+      <div class="stat">
+        <label>Open</label><div class="stat-val" id="s-open">—</div>
+      </div>
+      <div class="stat">
+        <label>High</label><div class="stat-val up" id="s-high">—</div>
+      </div>
+      <div class="stat">
+        <label>Low</label><div class="stat-val down" id="s-low">—</div>
+      </div>
+      <div class="stat">
+        <label>Volume</label><div class="stat-val" id="s-volume">—</div>
+      </div>
+      <div class="stat">
+        <label>Value (BDT)</label><div class="stat-val" id="s-value">—</div>
+      </div>
+      <div class="stat">
+        <label>Trades</label><div class="stat-val" id="s-trades">—</div>
+      </div>
+      <div class="stat">
+        <label>Spread</label><div class="stat-val" id="s-spread">—</div>
+      </div>
+    </section>
+
+    <!-- ── Order-book ladder ──────────────────────────────────── -->
+    <main class="ladder-wrap">
+      <div class="ladder-head">
+        <span class="col-qty">Bid&nbsp;Qty</span>
+        <span class="col-ord">Ord</span>
+        <span class="col-price">Price</span>
+        <span class="col-ord">Ord</span>
+        <span class="col-qty">Ask&nbsp;Qty</span>
+      </div>
+
+      <div id="asks" class="side asks"></div>
+
+      <div class="mid" id="mid">
+        <div class="mid-ltp" id="mid-ltp">—</div>
+        <div class="mid-meta">
+          <span id="mid-change">—</span>
+          <span class="sep">·</span>
+          <span id="mid-spread">spread —</span>
+        </div>
+      </div>
+
+      <div id="bids" class="side bids"></div>
+
+      <!-- Depth imbalance meter -->
+      <div class="imbalance">
+        <div class="imb-track">
+          <div class="imb-bid" id="imb-bid"></div>
+          <div class="imb-ask" id="imb-ask"></div>
+        </div>
+        <div class="imb-labels">
+          <span id="imb-bid-lbl" class="up">Bids —</span>
+          <span id="imb-ask-lbl" class="down">Asks —</span>
+        </div>
+      </div>
+    </main>
+
+    <footer class="footer">
+      <span id="feed-info">feed —</span>
+      <span class="grow"></span>
+      <span id="last-update">—</span>
+    </footer>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
