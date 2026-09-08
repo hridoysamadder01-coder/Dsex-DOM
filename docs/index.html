@@ -167,10 +167,61 @@
   @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
   @media (max-width:1080px){.console{grid-template-columns:1fr}.strips{grid-template-columns:1fr}
     .brand .sub{display:none}}
+
+  /* ── cinematic HUD layer ── */
+  .wrap{position:relative;z-index:1}
+  body::before{content:"";position:fixed;inset:-2px;z-index:0;pointer-events:none;opacity:.30;
+    background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+    background-size:46px 46px;animation:drift 26s linear infinite}
+  @keyframes drift{100%{background-position:46px 46px,46px 46px}}
+  .crt{position:fixed;inset:0;pointer-events:none;z-index:60;opacity:.35;mix-blend-mode:overlay;
+    background:repeating-linear-gradient(0deg,rgba(0,0,0,.30) 0 1px,transparent 1px 3px)}
+  .crt::after{content:"";position:absolute;inset:0;
+    background:radial-gradient(125% 95% at 50% 42%,transparent 58%,rgba(0,0,0,.55))}
+  .sweep{position:fixed;left:0;right:0;top:0;height:150px;z-index:61;pointer-events:none;
+    background:linear-gradient(180deg,transparent,rgba(79,214,255,.07),transparent);animation:sweep 6.5s linear infinite}
+  @keyframes sweep{0%{transform:translateY(-170px)}100%{transform:translateY(104vh)}}
+  .boot{position:fixed;inset:0;z-index:100;background:radial-gradient(circle at 50% 44%,#0a1428,#05070e);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;
+    font-family:var(--hud);animation:bootfade .5s ease-out 1.5s forwards}
+  .boot .big{font-size:27px;letter-spacing:6px;color:#fff;text-shadow:0 0 20px rgba(255,194,75,.6)}
+  .boot .big b{color:var(--gold)}
+  .boot .li{font-family:var(--mono);font-size:11px;color:var(--cyan);letter-spacing:2px}
+  .boot .bar{width:260px;height:4px;border-radius:3px;background:#12203a;overflow:hidden}
+  .boot .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--cyan),var(--gold));
+    animation:bootbar 1.45s ease-out forwards}
+  @keyframes bootbar{to{width:100%}} @keyframes bootfade{to{opacity:0;visibility:hidden}}
+  .ticker{overflow:hidden;border:1px solid var(--line);border-radius:10px;background:var(--panel2);
+    height:34px;display:flex;align-items:center;position:relative;z-index:1}
+  .ticker .track{display:inline-flex;gap:30px;white-space:nowrap;padding-left:100%;
+    animation:tick 30s linear infinite;font-family:var(--mono);font-size:12.5px;font-variant-numeric:tabular-nums;color:var(--muted)}
+  .ticker .track b{color:var(--text);margin-right:8px;font-family:var(--hud);letter-spacing:1px}
+  @keyframes tick{to{transform:translateX(-100%)}}
+  .gaugewrap{position:relative}
+  .gpulse{position:absolute;left:50%;top:22px;margin-left:-76px;width:152px;height:152px;border-radius:50%;
+    pointer-events:none;border:2px solid var(--gold);opacity:0}
+  .gpulse.on{animation:ring 1.25s ease-out infinite}
+  @keyframes ring{0%{opacity:.55;transform:scale(.62)}100%{opacity:0;transform:scale(1.28)}}
+  #needle{filter:drop-shadow(0 0 5px rgba(233,238,251,.7))}
+  #gauge path{filter:drop-shadow(0 0 4px currentColor)}
+  .audio{cursor:pointer;user-select:none}
+  .row.on{box-shadow:inset 0 0 22px rgba(255,194,75,.05)}
+  @media (prefers-reduced-motion: reduce){
+    .sweep,body::before,.ticker .track,.gpulse.on{animation:none!important}
+    .boot{display:none!important}
+  }
 </style>
 <style>img{max-width:100%}[hidden]{display:none!important}</style>
 </head>
 <body>
+<div class="boot" id="boot">
+  <div class="big">DSEX<b>▚</b>PRESSURE</div>
+  <div class="li">INITIALISING DEPTH ENGINE · CALIBRATING PRESSURE MODEL…</div>
+  <div class="bar"><i></i></div>
+</div>
+<div class="crt"></div>
+<div class="sweep"></div>
+
 <div class="wrap">
   <header>
     <div class="brand">
@@ -181,9 +232,12 @@
     <div class="metric"><span class="k">DSEX Index</span><span class="v" id="hIndex">—</span></div>
     <div class="metric"><span class="k">Spread</span><span class="v" id="hSpread">—</span></div>
     <div class="metric"><span class="k">Imbalance</span><span class="v" id="hImb">—</span></div>
+    <span class="pill audio" id="audioBtn"><span class="dot" style="background:var(--muted);box-shadow:none"></span>♪ SFX</span>
     <span class="pill sim" id="conn"><span class="dot"></span><span id="connT">SIM FEED</span></span>
     <span class="clock" id="clock">--:--:--</span>
   </header>
+
+  <div class="ticker"><div class="track" id="tkTrack"></div></div>
 
   <div class="console">
     <!-- watchlist -->
@@ -210,6 +264,7 @@
     <section class="panel pcol">
       <div class="phead"><h2>Hidden Pressure</h2><span class="tag">INFERRED</span></div>
       <div class="gaugewrap">
+        <div class="gpulse" id="gpulse"></div>
         <svg id="gauge" viewBox="0 0 220 130" width="220" height="130" aria-hidden="true"></svg>
         <div class="prob" id="prob">—</div>
         <div class="dir" id="dir">—</div>
@@ -382,6 +437,26 @@
   const $=id=>document.getElementById(id);
   const prevRows={a:[],b:[]}; let prevLtp=null; let velMid=null,velT=null,velTPM=0;
 
+  // cinematic: SFX (off by default) + top ticker
+  let audioOn=false, actx=null;
+  function beep(f,d){ if(!audioOn||!actx)return;
+    const o=actx.createOscillator(),g=actx.createGain();o.type="triangle";o.frequency.value=f;
+    o.connect(g);g.connect(actx.destination);const t=actx.currentTime;
+    g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.13,t+0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+d);o.start(t);o.stop(t+d);}
+  const audioBtn=$("audioBtn");
+  if(audioBtn)audioBtn.onclick=()=>{audioOn=!audioOn;
+    if(audioOn&&!actx){try{actx=new (window.AudioContext||window.webkitAudioContext)();}catch(_){}}
+    const dot=audioBtn.querySelector(".dot");
+    audioBtn.style.color=audioOn?"var(--gold)":"var(--muted)";
+    if(dot){dot.style.background=audioOn?"var(--gold)":"var(--muted)";dot.style.boxShadow=audioOn?"0 0 10px var(--gold)":"none";}};
+  const tk=$("tkTrack");
+  function renderTicker(){ if(!tk)return; let s="";
+    for(const b of books){const c=+(b.ltp-b.prev).toFixed(2),pct=(((b.ltp-b.prev)/b.prev)*100).toFixed(2);
+      const col=c>0?"var(--bid)":c<0?"var(--ask)":"var(--muted)";
+      s+=`<span><b>${b.s}</b>${b.ltp.toFixed(2)} <span style="color:${col}">${c>=0?"▲":"▼"}${Math.abs(pct)}%</span></span>`;}
+    tk.innerHTML=s+s;}
+
   // build ladder rows once
   const asksEl=$("asks"),bidsEl=$("bids");
   function mkRow(side){const r=document.createElement("div");r.className="lrow "+side;
@@ -483,6 +558,7 @@
     $("prob").textContent=(p*100).toFixed(0)+"%";
     const pc=p<.4?"var(--bid)":p<.72?"var(--gold)":"var(--ask)";$("prob").style.color=pc;
     $("dir").textContent=(bk.dir==="UP"?"▲ ":"▼ ")+bk.dir+" BIAS";$("dir").style.color=bk.dir==="UP"?"var(--bid)":"var(--ask)";
+    const gp=$("gpulse");if(gp){gp.style.borderColor=pc;gp.classList.toggle("on",p>0.7);}
     // queues
     const qmax=Math.max(buy.q,sell.q,1);
     $("qbV").textContent=fmt(buy.q);$("qsV").textContent=fmt(sell.q);
@@ -497,10 +573,10 @@
     const al=$("alert");
     if(spoofSide){al.className="alert hot";$("alertIc").textContent="SPOOF";
       $("alertMsg").innerHTML=`Cliff wall on <b>${spoofSide}</b> (${(Math.max(buy.cliff,sell.cliff)*100).toFixed(0)}% concentration) — discounted from the queue.`;
-      if(!seen[book.s+spoofSide]){seen[book.s+spoofSide]=1;pushLog("spoof",`${book.s}: spoof-shaped ${spoofSide} wall detected → capped out of ${spoofSide==="BID"?"buy":"sell"} queue.`);}
+      if(!seen[book.s+spoofSide]){seen[book.s+spoofSide]=1;pushLog("spoof",`${book.s}: spoof-shaped ${spoofSide} wall detected → capped out of ${spoofSide==="BID"?"buy":"sell"} queue.`);beep(180,0.13);}
     }else{al.className="alert ok";$("alertIc").textContent="CLEAR";seen[book.s+"BID"]=0;seen[book.s+"ASK"]=0;
       $("alertMsg").textContent="Book reads genuine — smooth accumulation, no cliff.";}
-    if(p>0.8&&!seen["brk"+book.s]){seen["brk"+book.s]=1;pushLog("brk",`${book.s}: breakout energy building → ${bk.dir} ${(p*100).toFixed(0)}%.`);}
+    if(p>0.8&&!seen["brk"+book.s]){seen["brk"+book.s]=1;pushLog("brk",`${book.s}: breakout energy building → ${bk.dir} ${(p*100).toFixed(0)}%.`);beep(784,0.10);}
     if(p<0.6)seen["brk"+book.s]=0;
     // header
     $("hSpread").textContent=(snap.bestAsk-snap.bestBid).toFixed(2);
@@ -531,7 +607,7 @@
     let idxSum=0;
     for(const b of books){b.step();b.__snap=b.levels();idxSum+=(b.ltp/b.base);}
     $("hIndex").textContent=(6100*idxSum/books.length).toFixed(1);
-    render(false);renderRail();
+    render(false);renderRail();renderTicker();
   }
   function clock(){$("clock").textContent=new Date().toLocaleTimeString("en-GB");}
 
@@ -559,7 +635,7 @@
 
   // ── init (render one frame immediately so the page is alive at rest) ──
   for(const b of books){b.__snap=b.levels();}
-  render(true);renderRail();clock();
+  render(true);renderRail();renderTicker();clock();
   const wsParam=new URLSearchParams(location.search).get("ws");
   if(wsParam)connect(wsParam);
   setInterval(tick,650);
